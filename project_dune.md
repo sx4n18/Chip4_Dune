@@ -155,3 +155,82 @@ I shall plot bus design for later integration of submodules.
 
 I have now also added the decoder into the module and hopefully it will integrate well with the bus.
 
+
+## 13 Jan 2026
+
+After reviewing the SPI slave/AMBA-manager design with Piotr, I raised my concern about the scaling problem.
+
+He suggested the distributed address decoder instead of a centralised address decoder with 16 select lines.
+
+But I guess the bottle neck is with the big read data mux instead of the decoder.
+
+Assume we have 32 channels that returns 8-bit data, the input to the mux would be 32x8 = 256 pins RDATA, and also 32 pins READY signal and 5-bit mux index, with only 8-bit data output and 1-bit ready signal.
+
+But for our decoder, the input will be 8-bit address (suppose our address widths stay the same), the output will be 32 pins. For a system this big, it feels okay.
+
+
+**Possible solution**
+
+Solution A:
+
+What was proposed was to add all the output to a global shared bus, with tri-state buffer design.
+
+And this shared buffer will be fed back to the manager.
+
+For me, ideally, I would prefer to not include tri-state buffer into the design.
+
+
+Solution B:
+
+Another possible solution is we keep the idea of shared bus.
+
+But we do the big OR-gating to the shared RDATA bus.
+
+
+```verilog
+// Shared READ DATA bus
+wire [7:0] HRDATA;
+// Enable the output of the subordinates
+wire [7:0] Enable;
+// Raw output of each sub
+wire [7:0] RDATA_RAW [7:0];
+// Final Output of each subordinates
+wire [7:0] RDATA_sub_0, RDATA_sub_1, RDATA_sub_2, RDATA_sub_3, RDATA_sub_4, RDATA_sub_5, RDATA_sub_6, RDATA_sub_7;
+
+
+assign RDATA_sub_0 = Enable[0]? RDATA_RAW[0] : 8'd0;
+assign RDATA_sub_1 = Enable[1]? RDATA_RAW[1] : 8'd0;
+assign RDATA_sub_2 = Enable[2]? RDATA_RAW[2] : 8'd0;
+assign RDATA_sub_3 = Enable[3]? RDATA_RAW[3] : 8'd0;
+assign RDATA_sub_4 = Enable[4]? RDATA_RAW[4] : 8'd0;
+...
+
+HRDATA = RDATA_sub_0 | RDATA_sub_1 | RDATA_sub_2 | ..... RDATA_sub_7;
+
+```
+
+So we simply just add 1 more signal at the subordinate module.
+
+
+## 14 Jan 2026
+
+
+Today I will try to finish one of the AHB bus slave register.
+
+
+This has been finished with the behaviour illustrated in the waveform,  
+
+![The AHB interface behaviour looks correct from what it looks](./img/AMBA-like_bus_slave_interface_one_single_channel_reg_bank.png)
+
+Because our AHB interface will only select one sub at at time in the middle of SPI data shifting, we do not need to worry multiple subs being selected at the same time. 
+
+There will also not be address/data pipeline, so we do not need to consider much about mutual exclusion.
+
+Next stage would be the integration simulation to see if the channel reg control bank would work.
+
+I have just verified the integration for the SPI+reg control bank+CFG decoder.
+
+The test case includes both writing sequence and reading sequence for our pixel block bank 000, which should have the address of 0100_0000 when writing and 1100_0000 when reading.
+
+Will work on the simple SPI module for Steve next.
+
