@@ -234,3 +234,62 @@ The test case includes both writing sequence and reading sequence for our pixel 
 
 Will work on the simple SPI module for Steve next.
 
+
+## 09 Feb 2026
+
+Now I have the algorithm for our arbiter, it is also important to develop the packet style and have the RTL ready for the arbiter.
+
+And I have the rough idea of packet design as below:
+
+```
+#### Start of the frame ####
+
+[0xFA][0xCE] ==> "FACE"
+
+#### Header ####
+
+[0xXX] ==> type of the packet, key information or anything useful (number of channel sub-packets in this frame)
+
+#### Channel ID + length of the packet ####
+
+[0xXX] ==> 000_10111 --> channel 0, with 24 words
+
+#### Pay load ####
+
+[0xXX] [0xXX] ....... ==> double the length for the bytes
+
+#### End of the frame ####
+
+[0xDE] [0xAD] ==> "DEAD"
+
+#### IDLE word ####
+
+[0xBC]
+
+#### Training words ####
+
+Alternating [0xBC] [0x4D]
+
+```
+
+Combined with our arbiter algorithms, we have the following triggers to emit our built up frame:
+
+1. Completed planned sweep (0→7 visited under current policy)
+2. Jump forward (skip middle, end at 7) → end frame after the last served in that sweep
+3. Jump backward (preempt to smaller index) → end frame at last served before wrap
+4. Builder-near-full, but refined as: can’t fit the next whole chunk -> seal frame now
+5. End-of-frame because “nothing was added in this sweep” -> don't emit a frame (stay IDLE)
+
+But in this design, I did not include CRC-16 to this coding. I think it would be expensive for this module.
+
+
+## 11 Feb 2026
+
+I have tried to implement the congestion aware round-robin arbiter, but it appears to be more challenging than I thought.
+
+This has been designed as external logic + function algorithm.
+
+The module itself will simply do the pop function and provide which FIFO to pop, and it will simply be combinational.
+
+The external register update will be processed by traditional hardware language.
+
