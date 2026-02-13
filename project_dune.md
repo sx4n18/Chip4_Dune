@@ -248,8 +248,7 @@ And I have the rough idea of packet design as below:
 
 #### Header ####
 
-[0xXX] ==> type of the packet, key information or anything useful (number of channel sub-packets in this frame)
-
+[0xXX] ==> type of the packet, key information or anything useful (number of channel sub-packets in this frame)43
 #### Channel ID + length of the packet ####
 
 [0xXX] ==> 000_10111 --> channel 0, with 24 words
@@ -292,4 +291,79 @@ This has been designed as external logic + function algorithm.
 The module itself will simply do the pop function and provide which FIFO to pop, and it will simply be combinational.
 
 The external register update will be processed by traditional hardware language.
+
+
+
+I did the simulation that hooks up our FIFOs and the scheduler with the following test case:
+
+```text
+
+Under the condition of max read of 8, FIFO depth of 256
+
+============== Phase 1: Seed all FIFOs =================
+
+We push different levels of content to all FIFOS:
+
+FIFO 0: 40;
+FIFO 1: 30;
+FIFO 2: 20;
+FIFO 3: 10;
+FIFO 4: 25;
+FIFO 5: 15;
+FIFO 6: 35;
+FIFO 7:  5;
+
+and then we request 80 pop operations:
+
+Technically, the scheduler should round-robin all FIFOs, but finish FIFO 7 early and went back to FIFO 0.
+
+After which, we should have the following used up number of words in each FIFO:
+
+FIFO 0: 40 - 8 - 8 = 24;
+FIFO 1: 30 - 8 - 8 = 14;
+FIFO 2: 20 - 8 - 3 = 4;
+FIFO 3: 10 - 8     = 2;
+FIFO 4: 25 - 8     = 17;
+FIFO 5: 15 - 8     = 7;
+FIFO 6: 35 - 8     = 27;
+FIFO 7:  5 - 5     = 0;
+
+So only FIFO 7 will be empty, this matches the empty flag we have.
+```
+
+![a simple round-robin style of read has been observed from the waveform within 80 pops](./img/Schedular_test_case_1_simple_round_robin_with_max_read_of_8_11_Feb_2026.png)
+
+
+A second test case:
+
+```text
+============== Phase 2: Force FIFO5 almost-full, expect pre-emption =================
+
+We push FIFO5 to almost full, and then see if our scheduler would prioritise the pop for FIFO5.
+
+This phase will pop FIFOs for 20 times
+```
+
+Closely connected is the third test case:
+
+```text
+============== Phase 3: Burst limit switching =================
+
+This test case start by pop 50 times of the FIFOs.
+
+Then add in FIFO 1 and FIFO 2 with 60 words each.
+
+Then it will pop 120 times to see if max read has been met.
+```
+
+The waveform showed FIFO 5 has been prioritised during test case 2 and keep on pooping for another 50 times
+
+![The waveform showed FIFO 5 has been prioritised during test case 2 and keep on pooping for another 50 times](./img/Test_case_of_2_and_half_3_for_the_scheduler_pop_behaviour_11_Feb_2026.png)
+
+And the second half of the popping for all the FIFOs that keep switching and also pop for 8 or less if fifo is empty
+
+![Second half of the test case number 3](./img/Second_half_of_testcase_3_that_keep_on_popping_and_switching_when_FIFOS_are_empty.png)
+
+
+## 12 Feb 2026
 
