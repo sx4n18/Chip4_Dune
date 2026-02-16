@@ -248,7 +248,8 @@ And I have the rough idea of packet design as below:
 
 #### Header ####
 
-[0xXX] ==> type of the packet, key information or anything useful (number of channel sub-packets in this frame)43
+[0xXX] ==> type of the packet, key information or anything useful (number of channel sub-packets in this frame)
+
 #### Channel ID + length of the packet ####
 
 [0xXX] ==> 000_10111 --> channel 0, with 24 words
@@ -367,3 +368,75 @@ And the second half of the popping for all the FIFOs that keep switching and als
 
 ## 12 Feb 2026
 
+## 16 Feb 2026
+
+Since introducing word length would be difficult, it may seems easier to simply just pack our data without the word length bytes.
+
+And it shall look like below:
+
+```text
+#### Start of the frame ####
+
+[0xFA][0xCE] ==> "FACE"
+
+#### Header ####
+
+[0xXX] ==> type of the packet, key information or anything useful (number of channel sub-packets in this frame)
+
+#### Sub packet start + Channel ID  ####
+
+[0x5C] Reserved keywords for start of the channel content
+
+[0xXX] Channel ID
+
+#### Pay load ####
+
+[0xXX] [0xXX] .......
+
+#### End of the frame ####
+
+[0xDE] [0xAD] ==> "DEAD"
+
+#### IDLE word ####
+
+[0xBC]
+
+#### Training words ####
+
+Alternating [0xBC] [0x4D]
+```
+But we would introduce byte stuffing while payload is transmitted to avoid ambiguity
+
+```
+###### Reserved keywords ######
+
+SOF:
+
+[0xFA] [0xCE]
+
+EOF:
+
+[0xDE] [0xAD]
+
+IDLE/SYNC:
+
+[0xBC] [0x4D]
+
+CHS:
+
+[0x5C]
+
+ESC:
+
+[0x7D]
+
+
+###### Byte stuffing ######
+
+When keywrods appear in payload, send [ESC] and then the (byte XOR 0x20)
+
+e.g. if [0xBC] appears in payload, it will be converted into [0x5C] [0xAC] 
+
+```
+
+This new way of framing will likely be easier to be designed in hardware actually.
