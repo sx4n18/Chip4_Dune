@@ -368,6 +368,27 @@ And the second half of the popping for all the FIFOs that keep switching and als
 
 ## 12 Feb 2026
 
+The design for the arbiter that we have implemented, which is shown in the figure below, has the core selection implemented in synthesisable function block, we can update our selection of FIFO to pop every time a pop command is given.
+
+![The overall CARR scheduler design with the register and update logic](./img/Arbiter_scheduler_CARR.pdf)
+
+Based on the empty, almost full flags, burst count of current selection and current FIFO ID, the functional block will export the next FIFO ID.
+
+If this differs from current ID registered, it shall reset the burst count to 1 when the next pop slot command is issued.
+
+Otherwise, it shall do simple increment of burst count.
+
+With the blocks functional in this, we can probably envision the whole data line strucutre would look like below:
+
+![The whole dataline with CARR arbiter and data unpacker and another FIFO and controller](./img/Whole_data_line_with_round_robin_arbiter_incorporated_CARR.pdf)
+
+
+The whole dataline shall include a flow controller where it issues pop command by sending pulse for do_pop_slot, when the new data comes through, it will be muxed to data unpacker and saved in 8-bit FIFO. This will later be assembled by the controller into new frames.
+
+The controller shall also logs down the number of words from each FIFO that has been poped to build up the frame.
+
+
+
 ## 16 Feb 2026
 
 Since introducing word length would be difficult, it may seems easier to simply just pack our data without the word length bytes.
