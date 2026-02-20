@@ -461,3 +461,126 @@ e.g. if [0xBC] appears in payload, it will be converted into [0x5C] [0xAC]
 ```
 
 This new way of framing will likely be easier to be designed in hardware actually.
+
+
+## 17 Feb 2026
+
+After the meeting today talking about the reserved words that are 6 bytes out of 256, Piotr pointed out that maybe we do not need to escape all the keywords.
+
+We should probably only escape the words that could confuse receiver during the control flow of payload, which should be **CHS**, **EOF** and **ESC**.
+
+And to be safe, we should keep everything 16-bit based.
+
+And in the payload, we should check them by word, not by byte. 
+
+e.g. if 0xDE 0xED appeared in the payload, we do not escape it, because it does not match entirely **EOF** and would not cause confusion to receiver.
+
+To make everything 16-bit wise, I propose the following updated word-stuffing method:
+
+```algo
+#### Start of the frame ####
+
+[0xFA][0xCE] ==> "FACE"
+
+#### Header ####
+
+[0xXXXX] ==> type of the packet, key information or anything useful (number of channel sub-packets in this frame)
+
+#### Sub packet start + Channel ID  ####
+
+[0xC0DE] Reserved keywords for start of the channel content
+
+[0xXXXX] Channel ID
+
+#### Pay load ####
+
+[0xXX] [0xXX] .......
+
+#### End of the frame ####
+
+[0xDE] [0xAD] ==> "DEAD"
+
+#### IDLE word ####
+
+[0xBCBC]
+
+#### Training words ####
+
+Alternating [0xBC] [0x4D]
+```
+
+Word stuffing as follow:
+
+```algo
+########### Reserved keywords ############
+
+EOF:
+
+[0xDEAD]
+
+CHS:
+
+[0xC0DE]
+
+ESC:
+
+[0xBEEF]
+
+########### Word stuffing ############
+
+When in payload, those 3 keywords appear:
+
+1. Send *ESC* first [0xBEEF]
+2. Send the (word XOR 0xFFFF)
+
+So basically, only 3 cases:
+
++ EOF in payload: [0xBEEF] [0x2152]
++ CHS in payload: [0xBEEF] [0x3F21]
++ ESC in payload: [0xBEEF] [0x4110]
+```
+
+In this way, this would be the odd of 3 in $2^{16}$, basically $0.004577636%$ 
+
+This word stuffing can be done by the unpacker, which can delay the pop process when needed.
+
+
+## 18 Feb 2026
+
+First, I tried to add some additional features to make dataline write down the output data from FIFOs:
+
+And it will be organised in the following format:
+
+```
+Time Step, Channel ID, Popped Word(Hex), Popped Word(Dec)
+0, 0, 0x7fff, 32767
+1, 1, 0x7ffd, 32765
+2, 1, 0x7ffe, 32766
+```
+
+Another class will be built to read the output text file and pack it into packets.
+
+And by the end of it, we shall see the efficiency of different codings.
+
+So with the original fixed word word length encoding and variable length encoding drafted, we tested both packetisations.
+
+For the same test file, we have the following results:
+
+```text
+============ CARR PACKER FIXED LENGTH PACKET RATIO ============
+
+Encoded packet size (in words):  18472
+Original FIFO output size (in words):  12682
+Packet ratio: 1.4565525942280397
+
+============ CARR PACKER VARIABLE LENGTH PACKET RATIO ============
+
+Encoded packet size (in words):  21166
+Original FIFO output size (in words):  12682
+Packet ratio: 1.6689796562056458
+```
+
+it shows that framing with byte stuffing will bring slightly higher overhead, but not by much.
+
+And there has not been any word stuffing in this test.
+
