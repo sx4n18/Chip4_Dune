@@ -584,3 +584,92 @@ it shows that framing with byte stuffing will bring slightly higher overhead, bu
 
 And there has not been any word stuffing in this test.
 
+
+## 20 Feb 2026
+
+I am now trying to build up the hardware model with both compression and FIFOs. 
+
+Given that we do not have the IP from UMC for DPRAM, I will have to write up the DPRAM myself and pack up my own behavioural FIFO model.
+
+This will take a day or two.
+
+## 23 Feb 2026
+
+I am now actively developing the new async fifo based on a simple dual-port synchronous ram.
+
+The structure has been set up, but we still do not know the exact behaviour of the DRAM yet.
+
+I can only construct a DPSRAM based on my understanding for the behaviour simulaiton.
+
+I hooked up the **POP** signal to the chip enable port of the DPSRAM, this has caused the delay of the data export.
+
+![First pop generate XXXX instead of actual data](./img/pop_signal_for_async_fifo_only_pops_thedata_one_clock_cycle_later.png)
+
+This is because our pop signal only enables the pop side, which would update the pop data one clock cycle later.
+
+Such behvaiour has made the FIFO spit out the first data, but because the internal register is not updated yet, which made the value output at the first pop **XXX** instead of the real value.
+
+
+## 24 Feb 2026
+
+I have been **promised** the delivery of the DPSRAM today, which has not happend yet.
+
+I will adjust the async FIFO accordingly when this has been delivered.
+
+I have also designed a second variation with "fetch-forward" feature.
+
+In this case, the async FIFO will basically take "POP" command as: POP will consume current output value, and next value will be updated in the next clock cycle.
+
+This would mean that the time it takes from the pulse of "POP" to data being actually availble is basically a tri-state buffer away.
+
+So on the read side, we do not have to wait for another cycle before data is given.
+
+And now, we shall hook up our Encoder_5P with 4 FIFOs and arbiter to see if this works.
+
+
+and also we need a system level "state machine" or controller to give control signals to our submodules.
+
+
+## 25 Feb 2026
+
+Starting to build some pipeline with the modules I have now.
+
+Now I have connected the arbiter and fifo and compression module, I can probably do a quick simulation on the exsiting designs.
+
+But I will need to generate the testbench pattern from the arrays I have.
+
+Will have to do this with python.
+
+Now I have the data ready and simulation should be easy.
+
+Carrying out simulation now, I will start by pushing data for 100 cycles, and this has proven to be successful.
+
+
+#### TEST case 1, continuous pushing of 55 rows of data
+
+The pixel value pushed into the compression module is **60'hFFFFFFFF_FF....F** to begin with, and then changed to **60'hFFFFFFFF_FFFC7FFF** at count of 53 and return back to all FFFF right after.
+
+This means only the second group of pixels has changed their value, from **7FFF** to **7FF8**.
+
+So after this, because we have not popped any data yet, we should have data in all 4 FIFOs, with FIFO-0, FIFO-2, FIFO-3 and FIFO-4 storing data of 7FFF.
+
+And FIFO-1 should have 3 words in it with:
+
+```verilog
+7FFF  // original value
+8035  // time stamp of 0035
+7FF8  // new pixel value
+7FFF  // the value flicked back to 7FFF
+```
+
+From the simulation, it can be seen that the FIFO-1 carries the right data.
+
+![The fifo memory shows that it carries the right amount of data after 53 rows of data simulation](./img/FIFO_1_carries_4_words_of_data_from_simulation_and_analysis.png)
+
+Will do more stressful test case tomorrow.
+
+
+## 26 Feb 2026
+
+I shall carry out more stressful test on the module today with some pop commands.
+
