@@ -671,5 +671,65 @@ Will do more stressful test case tomorrow.
 
 ## 26 Feb 2026
 
+I have been working on the licensing for MeMaker, which is not very successful.
+
+And after some simple debugging, it shows that lmutil provided from the downloaded package cannot find hostid of modern Linux.
+
+This is some horse shit I will have to put up with.
+
+
+
+## 27 Feb 2026
+
 I shall carry out more stressful test on the module today with some pop commands.
+
+Okay, it seems that our great IT system has successfully blocked the requested RAM block.
+
+I have raised an IT ticket to request the blocked attachment.
+
+Now I will do more simulation.
+
+So far it seems I should probably register the FIFO data output from the grouped FIFOs.
+
+And if the do_pop_slot pulses are sent at 37.5MHz, our design should be able to handle it and our registered FIFO_DATA_OUT will be correct.
+
+![waveform of readout logic when do pop slot is at 37.5 MHz](./img/do_pop_slot_pulsing_at_37-5MHz_and_output_right_logic_of_data.png)
+
+It is worth noting that the direct wire connection to FIFO data output is combinational, which will change due to the change of **POP** from the arbiter.
+
+The reason why **POP** is changing is because the status of **empty** has changed after the posedge of clock.
+
+And our FIFO output is basically:
+
+```verilog
+assign DATAOUT = POP? DOB: 16'd0;
+```
+
+Which means when pop changes from 1 -> 2 on the positive edge, different FIFOs were selected.
+
+```text
+
+        _____
+       |
+_______|
+
+FIFO 0   FIFO 1
+```
+
+But because this **POP** change only happens after the clock edge, so even if FIFO 1 was selected, its read pointer will not be updated, therefore the data was not "consumed".
+
+To eliminate frequent switching of FIFO_DATA_WIRE (the direct wire bus connection from FIFO groups), I would suggest register the output of the FIFO to FIFO_DATA_OUT, so we will not be impacted by the "temporary glitchy" output.
+
+Therefore, we shall have sel_id_q synced with this registered FIFO data output, the flag to assert this validity can come from a registered "do_pop_slot".
+
+
+### **Key cases to consider**
+
+But there is the case I should consider before designing an external controller.
+
+The controller should decide if do_pop_slot is reasonable.
+
+For example, if all FIFOs are empty, we should not issue any do_pop_slot pulse.
+
+Maybe another case would be if we are inserting reserved keywords to data unpacker, we should not issue any "do_pop_slot"
 
