@@ -733,3 +733,83 @@ For example, if all FIFOs are empty, we should not issue any do_pop_slot pulse.
 
 Maybe another case would be if we are inserting reserved keywords to data unpacker, we should not issue any "do_pop_slot"
 
+
+
+## 03 Feb 2026
+
+Finally I have managed to generate my own memory block for generic II process with 2 variations:
+
+Option 1 with column mux of 4; Option 2 with column mux of 8.
+
+I will now verify the behaviour of this dual port SRAM by replacing the async fifo design's dual port SRAM with the real deal.
+
+It appears that the provided DPRAM verilog module expects the real timing to satisfy the setup and hold check.
+
+This has resulted in hold violation in the simulation purely because the write pointer updates at the rising edge of the clock with 0 delay.
+
+Therefore, it won't pass the timing check and consequently lead to faulty behaviour.
+
+But when I added a little delay at the write pointer register update, it passed the check successfully.
+
+I shall move to the synthesis stage next.
+
+The generated RAM of 256X16 for this process has the dimension of **294.9 um X 315.04 um** 
+
+
+I just found that Faraday actually has an IP called 2-port register file that supports independent clocks with 1 side read and 1 side write.
+
+This is actually perfect for FIFO build and it is smaller.
+
+This generated RAM of 256X16 has the dimension of **301.56 um X 254.72 um**
+
+This kinda works... proven by the simulation.
+
+I will now also import the register file RAM into my virtuoso library.
+
+
+Synthesis and post-synthesis simulation is imminent 
+
+
+## 04 Feb 2026
+
+Okay, I have not synthesised the async fifo of 16-bit with 256 words.
+
+Ahhhh shit, the simulation breaks soon after reset was de-asserted....
+
+It made me think that the write reset shouldn't be lifted at the positive edge of the write clock.
+
+Okay!!! It seems my guess is correct!
+
+We will definitely need reset synchronisation in the final design!!!
+
+The new simulation looks okay with read and pop going on alright.
+
+Wait... why did the fifo stopped reading...
+
+![post-synthesis gate level simulation showed something worrying](./img/Synthesised_gate_level_simulation_of_async_fifo_having_a_read_stall_by_the_end.png)
+
+From the look of it...
+
+It seems when write pointer increment from 279 to 280, the 40 MHz clock edge and 75 MHz clock edge were too close to each other.
+
+![chain reaction happened in the simulation with synchroniser fail](./img/write_pointer_synchroniser_failed_and_propagated_an_X_to_write_domain_then_caused_issues.png)
+
+This has caused the write gray pointer synchroniser propagated X to the write clock domain.
+
+This then caused Empty flag to fail... and coincidentally, a pop command was asserted in this cycle.
+
+This has caused our read pointer logic to fail because it needs **(POP && ~Empty)**
+
+This then led to the testbench fail to assert read command ever again.
+
+From the sound of it, it is because the synchroniser was having a meta state in that situation...
+
+But in the real case, this will **NOT** happen, because the synchroniser will definitely have a value instead of X, which then will not lead to read pointer increment fail.
+
+I did a simple tweak on testbench to make it observe and drive pop at falling edge. So if unknown has been spotted for empty flag, it will not assert POP at the falling edge.
+
+This has resolved the simulation issue.
+
+The schematic after synthesis looks like this:
+
+![schematic after synthesis for this Async FIFO](./img/synthesised_schematic_of_async_fifo_based_on_dpram_IP.png)
