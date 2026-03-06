@@ -735,7 +735,7 @@ Maybe another case would be if we are inserting reserved keywords to data unpack
 
 
 
-## 03 Feb 2026
+## 03 Mar 2026
 
 Finally I have managed to generate my own memory block for generic II process with 2 variations:
 
@@ -770,7 +770,7 @@ I will now also import the register file RAM into my virtuoso library.
 Synthesis and post-synthesis simulation is imminent 
 
 
-## 04 Feb 2026
+## 04 Mar 2026
 
 Okay, I have not synthesised the async fifo of 16-bit with 256 words.
 
@@ -813,3 +813,106 @@ This has resolved the simulation issue.
 The schematic after synthesis looks like this:
 
 ![schematic after synthesis for this Async FIFO](./img/synthesised_schematic_of_async_fifo_based_on_dpram_IP.png)
+
+
+## 05 Mar 2026
+
+Last night I also managed to make the synthesis work for 1W1R two port ram (Register file) SZ series.
+
+And I have the gate level netlist for it.
+
+Now I suppose I am not in a rush to proceed for layout place and route, I shall move on to the next module for synthesis.
+
+Our arbiter will be next.
+
+While I was doing simulations for the synthesised gate level of the arbiter, I found a hidden "bug".
+
+Technically it is not a bug.
+
+In a specific situation when there is only one FIFO is not empty, it shall stick to reading from that FIFO even when the burst reading count has exceeded 32, the set max read. 
+
+We do have the fairness logic to prevent it from reading only one FIFO, but it shall stick to it if there is no other options. That is why one may see burst count exceeds 32.
+
+Once there is another candidate, it will prioritise other candidate to keep it fair.
+
+From the gate level simulation, it seems our arbiter is behaving ok.
+
+Will do the synthesis for compression module next.
+
+And then I will do gate level simulation with **compression module + Async FIFO + Arbiter**
+
+
+## 06 Mar 2026
+
+I will do the synthesis for the compression algorithm today.
+
+The synthesis for the module has now completed, we will put the module up for gate level simulation.
+
+It looks that our synthesised module has passed the simulation, and it works pretty well.
+
+Maybe now, we can hook up the gate level module into the pipeline and do a big simulation.
+
+But how do we pass multiple compiled SDF files into a top module with different gate level sub modules?
+
+After checking with the xcelium support, I found the following example:
+
+The following SDF command file contains separate sections that annotate distinct portions of a design hierarchy.
+
+```bash
+// File sdf.cmd
+COMPILED_SDF_FILE = "cpu.sdf.X",
+SCOPE = :m1,
+LOG_FILE = "cpu_sdf.log";
+
+COMPILED_SDF_FILE = "fpu.sdf.X",
+SCOPE = :m2,
+LOG_FILE = "fpu_sdf.log";
+
+COMPILED_SDF_FILE = "dma.sdf.X",
+SCOPE = :m3,
+LOG_FILE = "dma_sdf.log";
+```
+
+And also because our Async fifo and row encoder was generated in a for loop, I have named our generate block, so that we could apply the sdf back annotation for each generated module.
+
+And this has brought our SDF command file to this style:
+
+```bash
+// Async FIFO
+
+COMPILED_SDF_FILE = "/export/home/j05003sx/Chip4_DUNE/Async_FIFO_256X16/sim/Async_FIFO_256X16_delay.sdf.X",
+SCOPE = tb_Encoder_FIFO_ARB.i_Encoder_FIFO_ARB.Encoder_FIFO_GEN[0].Async_FIFO_256X16_inst,
+LOG_FILE = "Async0_sdf.log",
+MTM_CONTROL = "MAXIMUM";
+
+
+COMPILED_SDF_FILE = "/export/home/j05003sx/Chip4_DUNE/Async_FIFO_256X16/sim/Async_FIFO_256X16_delay.sdf.X",
+SCOPE = tb_Encoder_FIFO_ARB.i_Encoder_FIFO_ARB.Encoder_FIFO_GEN[1].Async_FIFO_256X16_inst,
+LOG_FILE = "Async1_sdf.log",
+MTM_CONTROL = "MAXIMUM";
+
+// Encoder
+
+COMPILED_SDF_FILE = "/export/home/j05003sx/Chip4_DUNE/Row_encoder_5P+/sim/Row_encoder_5P+_delay.sdf.X",
+SCOPE = tb_Encoder_FIFO_ARB.i_Encoder_FIFO_ARB.Encoder_FIFO_GEN[0].Row_encoder_5P_plus_inst,
+LOG_FILE = "Encoder0_sdf.log",
+MTM_CONTROL = "MAXIMUM";
+
+COMPILED_SDF_FILE = "/export/home/j05003sx/Chip4_DUNE/Row_encoder_5P+/sim/Row_encoder_5P+_delay.sdf.X",
+SCOPE = tb_Encoder_FIFO_ARB.i_Encoder_FIFO_ARB.Encoder_FIFO_GEN[1].Row_encoder_5P_plus_inst,
+LOG_FILE = "Encoder1_sdf.log",
+MTM_CONTROL = "MAXIMUM";
+
+
+// Arbiter
+
+COMPILED_SDF_FILE = "/export/home/j05003sx/Chip4_DUNE/CARR_arb/sim/CARR_arb_delay.sdf.X",
+SCOPE = tb_Encoder_FIFO_ARB.i_Encoder_FIFO_ARB.i_CARR_arb,
+LOG_FILE = "ARB_sdf.log",
+MTM_CONTROL = "MAXIMUM";
+```
+
+And under this scheme with gate level simulation, it appears that our design is working perfectly.
+
+
+
