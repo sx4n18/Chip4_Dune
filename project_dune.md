@@ -916,3 +916,9 @@ And under this scheme with gate level simulation, it appears that our design is 
 
 
 
+## 09 Mar 2026
+
+I am now thinking about this controller design. Will have to first define the behaviour I want and ports I need for this.
+
+This whole logic shall be reviewed and modelled as below:
+
