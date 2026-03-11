@@ -922,3 +922,69 @@ I am now thinking about this controller design. Will have to first define the be
 
 This whole logic shall be reviewed and modelled as below:
 
+```text
+Encoder_FIFO_arb
+        │
+        ▼
+Packet Builder
+   ├ frame FSM
+   ├ channel header insertion
+   └ payload escape
+        │
+        ▼
+Frame FIFO
+        │
+        ▼
+Link Layer
+        │
+        ▼
+16→8 unpacker
+        │
+        ▼
+PHY
+
+```
+
+
+## 10 Mar 2026
+
+Just realised I almost forgot clock forwarding...
+
+I still need to think of the clock forwarding logic. 
+
+Maybe it will be a separate logic that is shared by 4-5 groups of LVDS transmitter (100 pixels)
+
+Just realised my async fifo does not support burst read.
+
+This is because the output of the Async fifo **DATAOUT** is a combinational signal.
+
+which has the following expression:
+
+```verilog 
+assign DATAOUT = POP ? DOB: 16'd0;
+```
+
+But the data from the fifo has 1 clock cycle delay, and I am doing fetch forward FIFO design.
+
+Say I am raising a 5-cycle do pop slot non-stop
+
+At the 1st cycle I will consume the correct data, but at the 2nd cycle, the read pointer has just updated, which means the data from FIFO stays unchanged.
+
+On the 3rd cycle I am consuming the 2nd data and it goes on.
+
+```text
+
+cycle       do_pop_slot      read_ptr       DOB           dataout
+  0             0               1           mem[1]           0
+  1             1               1           mem[1]          mem[1]
+  2             1               2  ___      mem[1]          mem[1]
+  3             1               3     |===> mem[2]          mem[2]
+  4             1               4           mem[3]          mem[3]
+  5             1               5           mem[4]          mem[4]
+  6             0               6           mem[5]            0
+```
+
+Therefore, the pulse to do pop slot can only be asserted at a flickering style maxed out at 37.5MHz. like this: "10101010101"
+
+I should probably fix this at my next iteration of design.
+
