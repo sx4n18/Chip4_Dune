@@ -988,3 +988,85 @@ Therefore, the pulse to do pop slot can only be asserted at a flickering style m
 
 I should probably fix this at my next iteration of design.
 
+
+## 11 Mar 2026
+
+I currently plan to have the following behaviour for the state machine:
+
+```text
+do_pop_slot         dat_valid         DATA        SEL_ID        DATA_OUT        FRAME_FIFO_PUSH
+    0                   0               X           X             FACE                  1
+    0                   0               X           X             META                  1
+    1                   0               X           X             C0DE                  1 // prefetch data to get cid to begin with 
+    0                   1               A          CID1           CID1                  1
+    1                   0               A          CID1            A                    1
+    0                   1               B          CID1            x                    0
+    1                   0               B          CID1            B                    1
+    0                   1               C          CID2           C0DE                  1 // saved cid differs from the new cid
+    0                   0               C          CID2           CID2                  1
+    1                   0               C          CID2            C                    1
+    0                   1               D          CID3           C0DE                  1 // saved cid differs from the new cid
+    0                   0               D          CID3           CID3                  1 
+    1                   0               D          CID3            D                    1 
+    0                   1               E          CID3            X                    0 // data from the same cid.
+    1                   0               E          CID3            E                    1 // normal push
+    0                   1               F          CID3            X                    0
+    1                   0               F          CID3            F                    1
+    0                   1               G          CID1           DEAD                  1 // cid wraps around/drops, finish current frame
+    0                   0               G          CID1           FACE                  1 // new frame starts
+    0                   0               G          CID1           META                  1 // new meta data
+    0                   0               G          CID1           C0DE                  1 // because last frame finished due to cid wrap, no prefetch
+    0                   0               G          CID1           CID1                  1 // continue from last cid
+    1                   0               G          CID1            G                    1
+    0                   1               H          CID1            X                    0
+    1                   0               H          CID1            H                    1
+    0                   1               I          CID2           C0DE                  1
+    0                   0               I          CID2           CID2                  1
+    1                   0               I          CID2            I                    1
+    0                   1               J          CID3           C0DE                  1
+    0                   0               J          CID3           CID3                  1
+    1                   0               J          CID3            J                    1
+    0                   1               K          CID4           C0DE                  1
+    0                   0               K          CID4           CID4                  1
+    1                   0               K          CID4            K                    1
+    0                   1               L          CID4            X                    0
+    1                   0               L          CID4            L                    1
+    0                   1               M          CID4            X                    0 // FIFO empty, stop issuing pop command
+    0                   0               M          CID4            M                    1
+    0                   0               M          CID4           DEAD                  1 // Naturally finish this frame, go back to IDLE until fifo is filled again
+    0                   0               M          CID4            X                    0 
+    0                   0               M          CID4            X                    0 
+    0                   0               M          CID4            X                    0 // FIFO got new data
+    0                   0               M          CID4           FACE                  1
+    0                   0               M          CID4           META                  1
+    1                   0               M          CID4           C0DE                  1 // New frame begins...
+  ...
+```                                                                               
+
+
+## 12 Mar 2026
+
+After carefully reviewing the table and running the state mapping, I have now successfully drafted a preliminary version of the state machine we need.
+
+It seems that it is doing just fine for now.
+
+But,  a big **BUT**. The following cases have not yet been included:
+
++ Escape mechanism (maybe an extra state? or squeeze it in somewhere...)
++ When FRAME fifo is full. (currently we still pushes data into it)
++ Overflow contingency for pixel FIFO has not been dealt with
+
+My priority is escape mechanism and the second one when FRAME FIFO is full.
+
+These 2 should be easy to add.
+
+But I could do a quick simulation now by our packet builder and the module before it.
+
+Just did a quick behaviour level simulation with **CARR arbiter**, **Asyn fifo**, **Row encoder** and **Packet builder FSM**. it shows that our design can quickly deplete the pixel FIFOs.
+
+From the waveform, it shows that the data FIFO can be empty half of the time under this "real image"
+
+![The highlighted signal 'data_fifo_not_empty' shows the fifo being entirely empty half of the time ](./img/quick_simulaiton_waveform_shows_that_our_state_machine_can_be_IDLE_half_of_the_time.png)
+
+But this is probably not the most efficient way of doing it because if it is not filled by a lot, the arbiter may need to frequently change the FIFOs to read. And this is not the best practice for our encoding because we need to insert extra key words.
+
