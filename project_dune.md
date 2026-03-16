@@ -1062,11 +1062,110 @@ These 2 should be easy to add.
 
 But I could do a quick simulation now by our packet builder and the module before it.
 
-Just did a quick behaviour level simulation with **CARR arbiter**, **Asyn fifo**, **Row encoder** and **Packet builder FSM**. it shows that our design can quickly deplete the pixel FIFOs.
+Just did a quick behaviour level simulation with **CARR arbiter**, **Async fifo**, **Row encoder** and **Packet builder FSM**. it shows that our design can quickly deplete the pixel FIFOs.
 
 From the waveform, it shows that the data FIFO can be empty half of the time under this "real image"
 
 ![The highlighted signal 'data_fifo_not_empty' shows the fifo being entirely empty half of the time ](./img/quick_simulaiton_waveform_shows_that_our_state_machine_can_be_IDLE_half_of_the_time.png)
 
 But this is probably not the most efficient way of doing it because if it is not filled by a lot, the arbiter may need to frequently change the FIFOs to read. And this is not the best practice for our encoding because we need to insert extra key words.
+
+
+## 16 Mar 2026
+
+I have now included 2 extra states into my state machine.
+
+**ESC_DATA** and **COOLDOWN**.
+
+### **Data escaping mechanism**
+
+In the state of data consumption **PAYLOAD** and the payload is in the reserved words, it will simply output **BEEF** at this state and jump into **ESC_DATA** to output **PAYLOAD ^ FFFF**
+
+In the state **ESC_DATA**, it will act similarly as state **PAYLOAD**, it requests new data if the pixel data fifo is not empty.
+
+
+### **FRAME FIFO ALMOST FULL**
+
+We will only check if frame fifo is almost full at the state of payload_X, because data will be pushed into FIFO and a new data will be requested in state of **PAYLOAD**, we shall check first if the frame fifo is almost full at this state, if it is almost full, we will output nothing and jump to **COOLDOWN**, and wait until it is no longer almost full.
+
+We will only start evaluating the next step When we jump back to **PAYLOAD_X**.
+
+```text
+---- Same channel stream ---- ## same channel data from 0 -> 1111
+153000 OUTPUT: face
+167000 OUTPUT: 0000
+180000 OUTPUT: c0de
+193000 OUTPUT: 0000
+207000 OUTPUT: 0000
+233000 OUTPUT: 0001
+260000 OUTPUT: 0002
+287000 OUTPUT: 0003
+313000 OUTPUT: 0004
+340000 OUTPUT: 0005
+367000 OUTPUT: 0006
+
+---- Channel switch test ---- // channel switch from 0 -> 1
+393000 OUTPUT: 0007
+420000 OUTPUT: 1111
+433000 OUTPUT: c0de
+447000 OUTPUT: 0001
+460000 OUTPUT: 2222
+
+---- Reserved payload test ---- // channel 3 -> 1 frame wrap  &&&& reserved word C0DE and then BEEF and DEAD 
+473000 OUTPUT: c0de
+487000 OUTPUT: 0002
+500000 OUTPUT: 3333
+513000 OUTPUT: dead
+527000 OUTPUT: face
+540000 OUTPUT: 0001
+553000 OUTPUT: c0de
+567000 OUTPUT: 0001
+580000 OUTPUT: beef
+593000 OUTPUT: 3f21
+620000 OUTPUT: beef
+633000 OUTPUT: 4110
+
+---- Channel wrap test ----
+660000 OUTPUT: beef
+673000 OUTPUT: 2152
+687000 OUTPUT: c0de
+700000 OUTPUT: 0003
+713000 OUTPUT: aaaa
+
+---- Backpressure test ----
+727000 OUTPUT: dead
+740000 OUTPUT: face
+753000 OUTPUT: 0002
+767000 OUTPUT: c0de
+780000 OUTPUT: 0000
+793000 OUTPUT: bbbb
+833000 OUTPUT: c0de
+847000 OUTPUT: 0002
+860000 OUTPUT: 0008
+887000 OUTPUT: 0009
+913000 OUTPUT: 000a
+940000 OUTPUT: 000b
+967000 OUTPUT: 000c
+993000 OUTPUT: 000d
+1020000 OUTPUT: 000e
+1047000 OUTPUT: 000f
+1073000 OUTPUT: 0010
+
+---- FIFO empty termination ----
+1100000 OUTPUT: 0011
+1113000 OUTPUT: dead
+1127000 OUTPUT: face
+1140000 OUTPUT: 0003
+1153000 OUTPUT: c0de
+1167000 OUTPUT: 0001
+1180000 OUTPUT: 0012
+1207000 OUTPUT: 0013
+1233000 OUTPUT: 0014
+1247000 OUTPUT: dead
+```
+
+The packet builder is now basically built, except the overflow contingency.
+
+
+Maybe I will leave that to next iteration.
 
