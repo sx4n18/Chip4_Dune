@@ -1071,6 +1071,22 @@ From the waveform, it shows that the data FIFO can be empty half of the time und
 But this is probably not the most efficient way of doing it because if it is not filled by a lot, the arbiter may need to frequently change the FIFOs to read. And this is not the best practice for our encoding because we need to insert extra key words.
 
 
+## 13 Mar 2026
+
+I reviewed again about the 8:1 serialiser design that I previously looked at.
+
+The reported paper simply used double edge triggered flip-flops and 3 different clocks at different rates to do the 8 to 1 serialisation.
+
+The structure will look like this:
+
+![3-level double edge triggered flip-flops that can do 8:1 serialisation](./img/Serialiser_8X1.png)
+
+And correspondingly, the waveform might look like this:
+
+![The imagined waveform for this 8:1 serialiser where parallel data is serialised into bits](./img/waveform_of_the_DETFF_built_821_serialiser.png)
+
+
+
 ## 16 Mar 2026
 
 I have now included 2 extra states into my state machine.
@@ -1093,55 +1109,55 @@ We will only start evaluating the next step When we jump back to **PAYLOAD_X**.
 ```text
 ---- Same channel stream ---- ## same channel data from 0 -> 1111
 153000 OUTPUT: face
-167000 OUTPUT: 0000
+167000 OUTPUT: 0000  --> Frame count: 0000
 180000 OUTPUT: c0de
-193000 OUTPUT: 0000
-207000 OUTPUT: 0000
-233000 OUTPUT: 0001
-260000 OUTPUT: 0002
-287000 OUTPUT: 0003
-313000 OUTPUT: 0004
-340000 OUTPUT: 0005
-367000 OUTPUT: 0006
+193000 OUTPUT: 0000  
+207000 OUTPUT: 0000  --> DATA: 0000, CID: 000
+233000 OUTPUT: 0001  --> DATA: 0001, CID: 000
+260000 OUTPUT: 0002           .
+287000 OUTPUT: 0003           .
+313000 OUTPUT: 0004           .
+340000 OUTPUT: 0005  --> DATA: 0005, CID: 000
+367000 OUTPUT: 0006  --> DATA: 0006, CID: 000
 
----- Channel switch test ---- // channel switch from 0 -> 1
+---- Channel switch test ---- ## channel switch from 0 -> 1
 393000 OUTPUT: 0007
-420000 OUTPUT: 1111
-433000 OUTPUT: c0de
-447000 OUTPUT: 0001
-460000 OUTPUT: 2222
+420000 OUTPUT: 1111  --> DATA: 1111, CID: 000
+433000 OUTPUT: c0de                        |
+447000 OUTPUT: 0001                        V
+460000 OUTPUT: 2222  --> DATA: 2222, CID: 001
 
----- Reserved payload test ---- // channel 3 -> 1 frame wrap  &&&& reserved word C0DE and then BEEF and DEAD 
+---- Reserved payload test ---- ## channel 2 -> 1 frame wrap  &&&& reserved word C0DE and then BEEF and DEAD 
 473000 OUTPUT: c0de
-487000 OUTPUT: 0002
+487000 OUTPUT: 0002  --> DATA: 3333, CID: 002
 500000 OUTPUT: 3333
-513000 OUTPUT: dead
-527000 OUTPUT: face
-540000 OUTPUT: 0001
+513000 OUTPUT: dead  
+527000 OUTPUT: face 
+540000 OUTPUT: 0001  --> Frame count: 0001
 553000 OUTPUT: c0de
 567000 OUTPUT: 0001
-580000 OUTPUT: beef
-593000 OUTPUT: 3f21
-620000 OUTPUT: beef
+580000 OUTPUT: beef  --> DATA: C0DE, CID: 001
+593000 OUTPUT: 3f21  
+620000 OUTPUT: beef  --> DATA: BEEF, CID: 001
 633000 OUTPUT: 4110
 
 ---- Channel wrap test ----
-660000 OUTPUT: beef
+660000 OUTPUT: beef  --> DATA: DEAD, CID: 001
 673000 OUTPUT: 2152
 687000 OUTPUT: c0de
-700000 OUTPUT: 0003
+700000 OUTPUT: 0003  --> DATA: AAAA, CID: 003
 713000 OUTPUT: aaaa
 
 ---- Backpressure test ----
 727000 OUTPUT: dead
 740000 OUTPUT: face
-753000 OUTPUT: 0002
+753000 OUTPUT: 0002  --> Frame count: 0002
 767000 OUTPUT: c0de
 780000 OUTPUT: 0000
-793000 OUTPUT: bbbb
+793000 OUTPUT: bbbb  --> DATA: BBBB, CID: 000
 833000 OUTPUT: c0de
 847000 OUTPUT: 0002
-860000 OUTPUT: 0008
+860000 OUTPUT: 0008  --> DATA: 0008, CID: 002
 887000 OUTPUT: 0009
 913000 OUTPUT: 000a
 940000 OUTPUT: 000b
@@ -1153,7 +1169,7 @@ We will only start evaluating the next step When we jump back to **PAYLOAD_X**.
 
 ---- FIFO empty termination ----
 1100000 OUTPUT: 0011
-1113000 OUTPUT: dead
+1113000 OUTPUT: dead  --> PIXEL FIFOs are empty
 1127000 OUTPUT: face
 1140000 OUTPUT: 0003
 1153000 OUTPUT: c0de
