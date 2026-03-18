@@ -1185,3 +1185,49 @@ The packet builder is now basically built, except the overflow contingency.
 
 Maybe I will leave that to next iteration.
 
+
+## 17 Mar 2026
+
+
+I should now start the RTL design for the rest of the module.
+
+what I have left is basically a scheduler and packet_builder_FIFO (synchronous) and data unpacker.
+
+### **pkt_builder_fifo**
+
+I have now finished the implementation of the sync fifo, it is fairly easy with the ideal behaviour of the dual-port ram.
+
+I will now try to generate a 512 by 16 dual port ram (2W2R) and a 512 by 16 register file (1W1R) IP to integrate them into the sync fifo.
+
+Was having problem opening up Memaker again...
+
+This time it hangs at the start up.
+
+After some checking, I realised I have been using Ubuntu Wayland instead of X11.
+
+After switching back to XORG, it worked.
+
+Now I have also generated dual-port ram with 512 by 16 and register file with 512 by 16.
+
+With the REG_FILE IP integrated, it has also been verified that the behaviour is correct.
+
+
+
+## 18 Mar 2026
+
+I will now try the other IP, dual-port ram.
+
+My PC just crashed at ubuntu xorg, now I am switching back to wayland. cus it seems other gui does not work either.
+
+The module has also been verified with no problem.
+
+I will now proceed with module tx_link_controller.
+
+Which will basically do the flow control to insert IDLE words when needed, and do training at the beginning.
+
+I have now verified the behaviour level of the link layer control.
+
+And it seems the testbench can reconstruct the frame after it was transmitted.
+
+This can be signifies the RTL freeze for now.
+
