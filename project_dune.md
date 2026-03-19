@@ -1229,5 +1229,41 @@ I have now verified the behaviour level of the link layer control.
 
 And it seems the testbench can reconstruct the frame after it was transmitted.
 
-This can be signifies the RTL freeze for now.
+This can signifies the RTL freeze for now.
+
+
+## 19 Mar 2026
+
+Maybe it is time for a system level simulation or test.
+
+I am considering Cocotb for this task.
+
+The whole digital module will be split into 3 parts:
+
++ Encoder_FIFO_Arbiter
++ Packet_builder
++ PKT_FIFO_LINK
+
+
+The First module will have 4 Row_based_encoder_5P+, 4 Async pixel FIFO and 1 of our CARR arbiter.
+
+The Second module will only have itself for the packet builder FSM
+
+The Third module will have a link controller and Sync FIFO for frame and a gearbox for 16 to 8.
+
+
+
+There are some tiny details I should consider for future tapeout or at least fix them this time.
+
++ Reset synchronisation (The async fifo has 2 resets, they should be hooked to different reset synchronisers)
++ Global counter tiktok
++ Extra register of the data coming out of the Async FIFO
+
+Good news, it looks that our system works pretty well.
+
+The whole data chain can correctly pick up the right fifo and pick up the right data and produce the correct data stream.
+
+I shall now move on to system-level verification, this time it shall be verified by Cocotb given that the behavioural level simulation looks correct.
+
+I am very satisfied with the RTL design at the moment.
 
