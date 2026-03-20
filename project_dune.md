@@ -1267,3 +1267,216 @@ I shall now move on to system-level verification, this time it shall be verified
 
 I am very satisfied with the RTL design at the moment.
 
+
+## 20 Mar 2026
+
+I will now start thinking about the configuration logic as well.
+
+Fortunately I have SPI interface ready.
+
+I should list all the possible configurations we might expect in this chip:
+
+PLL OPERATING ON:
+
+CKOUT = (N/M)\* FREF
+
++ PLL
+  + PLL_EN, 1 when enabled
+  + PLL_BYPASS, force REFCLK -> system
+  + MS \[5:0\] pre-divider
+  + NS \[5:0\] loop-divider
+  + FRANGE, 0 WHEN CKOUT <= 100Mhz, 1 WHEN OTHERWISE
++ LVDS
+  + EN, 0, POWER DOWN, 1, NORMAL
+  + RS, 0, 250 mV SWING, 1, 350 mV SWING
++ CHANNEL\[i\]
+  + PIXEL_MASK \[19:0\], this will have to distributed across 4 groups.
+  + CHN_ENABLE
++ SYSTEM_CTL
+  + SW_RESET (re-run bring-up FSM)
+  + SYS_ENABLE (gate data path)
+
+
+I will also list all the status we might need from our system:
+
++ PLL
++ LVDS
++ CHANNEL\[i\]
+  + PIX_FIFO_OVERFLOW, \[3:0\]
+  + FRM_FIFO_FULL,
+  + CHN_ENABLE 
++ SYSTEM_CTL
+  + CURRENT CLK SOURCE, 0, REFCLK, 1, PLL
+  + BRING-UP FSM STATE, TODO...
+  + PLL ENABLED FLAG
+  + PLL_TIMEOUT
+  + PIX_RESET_N
+  + SYS_RESET_N
+
+Because my SPI configuration has the following address design:
+
+```text
+addr[7]   = R/W
+addr[6]   = SPACE (0=Global, 1=Channel)
+addr[5:3] = ID (0..7)
+addr[2:0] = OFFSET (0..7)
+```
+
+This means I have:
+- 8 Global blocks
+- 8 Registers per blocks
+- 8 Channels x 8 registers
+
+Maybe I will structure my address map as below:
+
+### **GLOBAL SPACE (addr\[6\] = 0)**
+
+BLOCK ALLOCATION:
+
+ID=0 → SYSTEM_CTRL / STATUS
+ID=1 → PLL
+ID=2 → LVDS
+ID=3 → ERROR / DEBUG
+ID=4 → COUNTERS
+ID=5 → RESERVED
+ID=6 → RESERVED
+ID=7 → CHIP INFO
+
+
+**ID = 0 -> SYSTEM**
+
+```text
+OFFSET
+
+0 → SYSTEM_CTRL
+    [0] SW_RESET
+    [1] SYS_ENABLE
+    [2] FORCE_REFCLK
+    [3] RESERVED
+
+1 → SYSTEM_STATUS
+    [2:0] FSM_STATE
+    [3]   CLK_SEL (0=REF,1=PLL)
+    [4]   PLL_EN
+    [5]   PLL_STABLE_ASSUMED
+    [7:6] RESERVED
+
+2 → RESET_STATUS
+    [0] PIX_RESET_N
+    [1] SYS_RESET_N
+
+3 → CHANNEL_ENABLE [7:0]
+    (bit per lane — use lower 4 bits now, future-proofed)
+
+4 → RESERVED
+
+5 → RESERVED
+
+6 → RESERVED
+
+7 → RESERVED
+```
+
+**ID = 1 -> PLL**
+
+```text
+0 → PLL_CTRL
+    [0] PLL_EN
+    [1] PLL_BYPASS
+    [2] FRANGE
+    [7:3] RESERVED
+
+1 → PLL_DIV_M
+    [5:0] MS
+
+2 → PLL_DIV_N
+    [5:0] NS
+
+3 → PLL_STATUS
+    [0] PLL_ACTIVE (optional toggle detect)
+    [1] PLL_TIMEOUT_FLAG
+
+4–7 → RESERVED
+```
+
+
+**ID = 2 -> LVDS**
+
+```text
+0 → LVDS_CTRL
+    [0] EN
+    [1] RS (swing)
+    [2] TERM_EN (if applicable)
+
+1 → LVDS_STATUS
+    [0] ACTIVE
+    [1] ERROR (optional)
+
+2–7 → RESERVED
+```
+
+**ID = 3 -> ERR (sticky + clear)**
+
+```text
+0 → ERROR_STATUS_L
+    [3:0] PIX_FIFO_OVERFLOW
+    [7:4] PIX_FIFO_UNDERFLOW
+
+1 → ERROR_STATUS_H
+    [0] FRM_FIFO_OVERFLOW
+    [1] FRM_FIFO_UNDERFLOW
+    [2] PLL_TIMEOUT
+    [3] LVDS_ERROR
+
+2 → ERROR_CLEAR
+    write-1-to-clear matching bits
+
+3–7 → RESERVED
+```
+
+**ID = 4 -> COUNTERS (optional)**
+
+```text
+0 → FRAME_CNT_L
+1 → FRAME_CNT_H
+
+2 → PACKET_CNT_L
+3 → PACKET_CNT_H
+
+4–7 → RESERVED
+```
+
+**ID =7 -> CHIP INFO**
+
+```text
+0 → CHIP_ID      (e.g. 0xA5)
+1 → VERSION      (e.g. 0x01)
+2–7 → RESERVED
+```
+
+### **CHANNEL SPACE (addr\[6\] = 1)**
+
+**CHANNEL\[i\]**
+
+```text
+OFFSET
+
+0 → CH_CTRL
+    [0] ENABLE   (local override, ANDed with global enable if you want)
+
+1 → PIX_MASK_0   [7:0]
+2 → PIX_MASK_1   [15:8]
+3 → PIX_MASK_2   [19:16]
+
+4 → CH_STATUS
+    [0] ACTIVE
+    [1] FIFO_FULL
+    [2] FIFO_EMPTY
+
+5 → CH_DEBUG (optional)
+    [7:0] debug bus / state
+
+6 → RESERVED
+7 → RESERVED
+```
+
