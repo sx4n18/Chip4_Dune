@@ -1333,14 +1333,14 @@ Maybe I will structure my address map as below:
 
 BLOCK ALLOCATION:
 
-ID=0 → SYSTEM_CTRL / STATUS
-ID=1 → PLL
-ID=2 → LVDS
-ID=3 → ERROR / DEBUG
-ID=4 → COUNTERS
-ID=5 → RESERVED
-ID=6 → RESERVED
-ID=7 → CHIP INFO
++ ID=0 → SYSTEM_CTRL / STATUS
++ ID=1 → PLL
++ ID=2 → LVDS
++ ID=3 → ERROR / DEBUG
++ ID=4 → COUNTERS
++ ID=5 → RESERVED
++ ID=6 → RESERVED
++ ID=7 → CHIP INFO
 
 
 **ID = 0 -> SYSTEM**
@@ -1502,3 +1502,16 @@ So, PLL configuration will be exception and directly controlled by our "shadow r
 Normally it will be recommended to configure everything else when system clock is up and stable.
 
 
+## 23 Mar 2026
+
+I will now design the channel control bank based on the new designed memory map.
+
+What needs to be included is the cdc module.
+
+I have now also finished control bank for each channels and LVDS.
+
+This should be more or less the essential control groups we need, PLL, LVDS and Channels.
+
+I have not done the CDC commit handling yet, but this should be easy, and it only exists for channel configure groups.
+
+We do not need CDC commit handling for PLL and LVDS.
