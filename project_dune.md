@@ -1480,3 +1480,25 @@ OFFSET
 7 → RESERVED
 ```
 
+## 22 Mar 2026
+
+I will at least make the write and configuration work with my designed modules.
+
+Because my configure logic will have to configure parameters before PLL and system clock is even up, it would be recommended to make SPI system work at the refclock domain, which in our case should be 20 MHz.
+
+Normally for the parameter write transactions, it will have to follow a "shadow flops" to commit cycle.
+
+The flow is like:
+
++ update the shadow flip-flops at the ref clock domain
++ send commit toggle signal
++ synced commit toggle edge detected at destination clock domain (register is stable to sample)
++ update the register at the destination clock domain 
+
+But for PLL configuration, which subsequently will produce the system clock, we cannot do "destination" clock domain because it has not exited yet.
+
+So, PLL configuration will be exception and directly controlled by our "shadow registers"
+
+Normally it will be recommended to configure everything else when system clock is up and stable.
+
+
