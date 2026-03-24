@@ -1521,3 +1521,7 @@ We do not need CDC commit handling for PLL and LVDS.
 
 I have now finished CDC module design for channel bank, probably the only bit that would need cdc.
 
+This whole system has been verified for the write behaviour together with CDC.
+
+Now I will make the module spit back the register value when requested.
+
