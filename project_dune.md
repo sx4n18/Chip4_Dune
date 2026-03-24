@@ -1384,7 +1384,8 @@ OFFSET
     [0] PLL_EN
     [1] PLL_BYPASS
     [2] FRANGE
-    [7:3] RESERVED
+    [3] TEST
+    [7:4] RESERVED
 
 1 → PLL_DIV_M
     [5:0] MS
@@ -1469,9 +1470,8 @@ OFFSET
 3 → PIX_MASK_2   [19:16]
 
 4 → CH_STATUS
-    [0] ACTIVE
-    [1] FIFO_FULL
-    [2] FIFO_EMPTY
+    [3:0] PIXEL_FIFO_FULL
+    [7:4] _PIXEL_FIFO_EMPTY
 
 5 → CH_DEBUG (optional)
     [7:0] debug bus / state
@@ -1515,3 +1515,9 @@ This should be more or less the essential control groups we need, PLL, LVDS and 
 I have not done the CDC commit handling yet, but this should be easy, and it only exists for channel configure groups.
 
 We do not need CDC commit handling for PLL and LVDS.
+
+
+## 24 Mar 2026
+
+I have now finished CDC module design for channel bank, probably the only bit that would need cdc.
+
