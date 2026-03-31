@@ -1525,3 +1525,93 @@ This whole system has been verified for the write behaviour together with CDC.
 
 Now I will make the module spit back the register value when requested.
 
+
+## 26 Mar 2026
+
+Now I have finished my presentation, I will get back to workkkk....
+
+I should start doing layout, place and route and stuff.
+
+I will start by our arbiter and Async FIFO, and leave row-based encoder last, cus we have not verified the cross simulation would actually work at the pixel front end ADC and our compression module.
+
+Another work I have been thinking is to implement group of FIFOs together, like 4 of async FIFO as a whole instead of doing implementation of one async FIFO at a time.
+
+Cus the dual-port ram is already big with the given configuration, like 300 X 300 um, to fit that into the width of 200 um may be difficult.
+
+I will try to make one single channel implementation now and see how it looks.
+
+Even though I have generated the script for innovus start up, I will do this first one manually... and make modifications to certain files if needed.
+
+
+## 27 Mar 2026
+
+I am now doing the async FIFO implementation in innovus...
+
+## 30 Mar 2026
+
+Continuing the layout implementation of the async FIFO in innovus...
+
+
+I have now finished the Async fifo design, but it has not yet been verified with gate-level simulation.
+
+![Complete layout design for Async fifo 256 x 16](./img/Complete_version_1_design_of_Async_FIFO_256X16.png)
+
+What is worth noting is that in the areas where is no logic, simply filled with filler cells because the layout needs filling, the tool complained that their VCC/GND is not connected to the main power supply.
+
+I personally think this should be okay, but I will deliver another version probably for this aysnc fifo.
+
+This layout has also been imported back into virtuoso, and it looks alright so far.
+
+
+![The GDS looks decent after it was imported in virtuoso](./img/Complete_GDS_looks_alright_in_virtuoso_with_everything_showing.png)
+
+
+## 31 Mar 2026
+
+I shall continue the alternative implementation with the script I had previously.
+
+Now I have also finished the alternative design for async fifo with the DPRAM block placed on the side and extra power ring around it to get better cell placement.
+
+I will now do the gate-level simulation again.
+
+And from the average testbench, it looks that the gate-level behaviour is doing alright.
+
+I will now proceed to the arbiter place and route.
+
+Just realised I have this glue logic between async FIFO group/arbiter and packet builder as below:
+
+```verilog
+
+logic do_pop_slot_reg;
+logic [15:0] mux_out;
+
+wire [63:0] FIFO_DATA_WIRE;
+
+  always @(posedge CLK75M)
+  begin 
+    FIFO_DATA_OUT <=  FIFO_DATA_WIRE;
+  end
+
+always_ff @(posedge CLK75M)
+begin 
+  do_pop_slot_reg <= do_pop_slot;
+end
+
+
+always_comb
+begin
+  case (SEL_ID)
+    2'b00: mux_out = FIFO_DATA_OUT[15:0];
+
+    2'b01: mux_out = FIFO_DATA_OUT[31:16];
+
+    2'b10: mux_out = FIFO_DATA_OUT[47:32];
+
+    2'b11: mux_out = FIFO_DATA_OUT[63:48];
+    
+    default : mux_out = FIFO_DATA_OUT[15:0];
+   endcase 
+
+end
+```
+
