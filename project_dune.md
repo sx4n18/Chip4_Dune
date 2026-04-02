@@ -1615,3 +1615,57 @@ begin
 end
 ```
 
+
+## 1 Apr 2026
+
+I will now continue the place and route of rest of the data chain.
+
+I will do the synthesis for the whole link layer where the following modules are included:
++ pkt_builder_fifo
++ tx_link_controller
++ tx_gearbox_16to8
+
+
+These modules are encapsulated in the top module PKT_FIFO_LINK.v
+
+Synthesis for PKT_FIFO_LINK is now finished, and gate level behaviour has been verified to be correct.
+
+Will now proceed to the place and route stage.
+
+I have also chosen to not flatten the design, so that the hierarchy can be saved from the synthesis stage.
+
+![The synthesis result of this simple module](./img/Synthesis_results_of_pkt_fifo_link_module_with_hierarchy_saved_from_synthesis.png)
+
+
+# 2 Apr 2026
+
+I was having problem place the cells because most of the flops used by the design is scan cells, innovus refused to place and route until I create a scan chain.
+
+This happens because Genus used scan flops to possibly save space or timing.
+
+Now I did synthesis again with the following commands added:
+
+```tcl
+set_dont_use [get_lib_cells *DBZ*]
+set_dont_use [get_lib_cells *DFZ*]
+
+```
+
+This would basically block the use of scan flops.
+
+Then proceed to place and route, it worked this time.
+
+I have now finished the implementation of PKT_FIFO_LINK module, which simply deals with packet builder and serialiser.
+
+And the final look is like this:
+
+![The layout of the module PKT_FIFO_LINK which incorporates packet builder fifo, link controller and gearbox](./img/Simple_PKT_FIFO_LINK_design_place_and_route_result.png)
+
+It is a very simple module.
+
+I have been also trying to restructure CARR_arb, so that I can register the output of async FIFO and then mux them out depending on the selected ID to packet builder.
+
+This has been finished and simulated at the behaviour level, and it looks okay.
+
+Will now proceed the synthesis for this and also remember to not use scan flops.
+
