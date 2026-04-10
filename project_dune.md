@@ -1669,3 +1669,98 @@ This has been finished and simulated at the behaviour level, and it looks okay.
 
 Will now proceed the synthesis for this and also remember to not use scan flops.
 
+
+## 3 Apr 2026
+
+I have now placed and routed the design for CARR_ARB_MUX module, but there has been a problem at the final checkup.
+
+It looks that the antenna lef I imported has been ignored by the tool, so it cannot do process antenna check.
+
+It seems one should import LEF files by order "TechLEF, core lef, antenna lef"
+
+I will redo this when I can.
+
+
+## 6 Apr 2026
+
+I have finished the placement for CARR arbiter with mux design, which has a lot more pins than expected because of the built in mux design.
+
+I shall now proceed with the packet builder design, will start with synthesis.
+
+In the mean time, I have the idea of probably do a 2 async FIFO stacked together design.
+
+Like instead of 1 Async fifo as individual, I could have 2 Async FIFO stacked together to have a "slim" design and place and route globally with these 2 submodules.
+
+Synthesis finished, and it looks that the gate level simulation has passed.
+
+Place and route has also been finished, this is fairly easy.
+
+
+## 7 Apr 2026
+
+I will try to do a new implementation of the double AFIFO to reduce the routing problem.
+
+I had the following error when I was trying to do clock tree synthesis:
+
+```
+**WARN: (IMPECO-560): The netlist is not unique, because the module 'Async_FIFO_256X16' is instantiated multiple times. Make the netlist unique by running 'set_db init_design_uniquify true' before loading the design to avoid the problem. Type 'man IMPECO-560' for more detail. 
+**ERROR: (IMPCCOPT-4255): Netlist must be uniquified before synthesizing clock trees.
+```
+
+This is because I have the same name for duplicated module, so I will now find the solution.
+
+ChatGPT suggests I turn on the ```set_db init_design_uniquify true``` 
+
+I have tried this, but it does not work.
+
+I guess I could redo the synthesis for the module and add constraints to limit the use of scan flip-flops.
+
+While doing synthesis, I found the following attribute:
+
+```
+@genus:root: 44> help use_scan_seqs_for_non_dft
+Attribute: use_scan_seqs_for_non_dft (on obj_type: root)
+  Description:            Allow the use of scan sequential cells for non-DFT purposes (true|false|degenerated_only).
+  category:               lib_ui
+  default_value:          true
+  is_computed:            false
+  is_settable:            true
+  skip_in_db:             false
+  type:                   enum { true false degenerated_only }
+```
+
+I have now turned this off, we will see if only normal flops will be used.
+
+
+## 8 Apr 2026
+
+I have now finished the double async FIFO implementation, I shall start reimplement new floorplan for CARR arbiter now.
+
+This aims to give the arbiter a "wider" design to fit all the data pins on top.
+
+I have now finished the design of packet_buider version 2, with data pins fed from top in a reverse order (15->0) and spit out at the bottom with ascending order (0->15) because the following module will remain unchanged.
+
+![Newly designed double aync fifo together with arbiter and packet builder makes it possible for routing](./img/New_fllorplan_looks_more_organised_and_doable_with_newly_designed_modules.png)
+
+
+## 9 Apr 2026
+
+We have just been informed that next week's deadline is the actual DEADLINE, with no further 2-3 weeks for DRC fix and iterations.
+
+This has set us in a really bad situation where we have to produce something now before time ends.
+
+This is really not good for us.
+
+I will proceed my DRC check and LVS check for the blocks I have implemented.
+
+Now I have checked DRC for the following module:
+
++ Double_AFIFO_256X16
++ PKT_FIFO_LINK 
++ Packet_builder
++ CARR_ARB_MUX
+
+They are all clean from the look of it.
+
+And I still have not figure out the implementation for SPI configuration if we are moving to full chip design now.
+
