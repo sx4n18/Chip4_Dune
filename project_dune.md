@@ -1764,3 +1764,18 @@ They are all clean from the look of it.
 
 And I still have not figure out the implementation for SPI configuration if we are moving to full chip design now.
 
+
+## 10 Apr
+
+Last 7 days before tape out... after discussion, we decided to push forward with the design as before, we will do as much as we could.
+
+Okay, I will do a quick verification for my encoder module on the schematic level.
+
+And it turns out it is not quick at all....
+
+why am I even doing this????
+
+I will go ahead now with LVS for my own module, this will be a wiser choice.
+
+I have now verified 2 modules without the memory IP, and it is a match with the power and ground problem solved.
+
