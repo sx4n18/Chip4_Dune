@@ -1765,7 +1765,7 @@ They are all clean from the look of it.
 And I still have not figure out the implementation for SPI configuration if we are moving to full chip design now.
 
 
-## 10 Apr
+## 10 Apr 2026
 
 Last 7 days before tape out... after discussion, we decided to push forward with the design as before, we will do as much as we could.
 
@@ -1778,4 +1778,170 @@ why am I even doing this????
 I will go ahead now with LVS for my own module, this will be a wiser choice.
 
 I have now verified 2 modules without the memory IP, and it is a match with the power and ground problem solved.
+
+
+## 13 Apr 2026
+
+It may seem there has been no update in the last couple days, but I have done all the work necessary to keep the implemented digital modules LVS clean.
+
+And I am now implementing the top level of SPI configuration.
+
+Also, it appears we are using XMD instead of XMC cells, so the constraints for some SPI configure will have to adapt.
+
+As for the cells I have constraint with XMC, I will have to leave it for now.
+
+I will now add some extra testing pins for 1 virtual lane without LVDS modules and a fixed read only chip info module.
+
+Now I am doing the synthesis for my SPI-configure top module, which has just passed the post-syn simulation test with timing back-annotation.
+
+Will now head for place and route.
+
+
+
+## 14 Apr 2026
+
+I think we got our slot back......
+
+And now we will have to crush through to get something submitted.
+
+Also it has been pointed that I need to hook up to the serialiser, which I have not thought about.
+
+But before that, I will start the LVS check for the SPI configure top module.
+
+Okay, just did LVS, the SPI CONFIG TOP passed the test.
+
+I did a quick spice simulation of my last stage of link module "gearbox_16to8" and our serialiser, and it seems it is doing what we want it to do.
+
+![The spice simulation shows what we expect from the behaviour of those 2](./img/SPICE_SIMULATION_OF_GEARBOX_AND_SERIALISER.png)
+
+the simulation showed the serialiser exported the single bit transition for word "BCBC", which should have the bit go like 1->0->1->1->1->1->0->0
+
+I will now rerun the test but turn it into our training word "BC4D" to see the output behaviour.
+
+This also reminds me that we will be needing a forwarding clock lane with fixed values that goes as "00111100" so that our receiver will be able to detect the bit stream.
+
+The simulation result below shows that our design works as expected to transmit bits as the order for BC4D:
+![Training word BC4D has been transmitted properly](./img/spice_simulation_with_my_gearbox_again_and_serialiser_with_training_word_BC4D.png)
+
+I feel I could safely connect my module to it I suppose.
+
+But the question remains, can we make sure the serialiser can drive the LVDS?
+
+I will now continue my simple counter design as the main driver for my encoder.
+
+And to make the counter more interesting... I think I can use the extra configuration I have spared previously to make the counter to do something with it.
+
+
+I have just designed and synthesised the counter module with programmability for different "modes", which has also been verified to be working correctly.
+
+The function can be summarised below:
+
+
+CNT40M_60BIT – Configurable 60-bit Counter (40 MHz input, 20 MHz update)
+
+A 60-bit synchronous counter operating on a 40 MHz clock, with an internal divide-by-2 mechanism (toggle) to produce an effective 20 MHz update rate. The counter supports programmable step size, optional modulo operation on lower bits, and freeze control for debug or flow control.
+
+Key Features
+
++ 60-bit counter width for large dynamic range 
++ 20 MHz effective update rate (updates every 2 clock cycles)
++ Programmable step size (6-bit, auto-corrected to ≥1)
++ Optional modulo mode with configurable MIN/MAX (6-bit, scaled)
++ Freeze control to hold current count value
++ Data enable output aligned with valid counter updates
+
+Functional Description
+
+- Counter increments by STEP on every enabled cycle (when internal toggle = 1)
+- When MODULO_EN = 0:
+  - Counter operates as a free-running 60-bit counter
+- When MODULO_EN = 1:
+  - Lower 12 bits are constrained within a scaled MIN/MAX range
+  - Upon reaching/exceeding MAX, lower bits reset to MIN and upper bits increment
+- When FREEZE = 1:
+  - Counter holds its current value regardless of other inputs
+
+Output Behavior
+
++ CNT_60BIT: Updated at 20 MHz effective rate
++ data_enable: Indicates valid update cycles (aligned with counter updates)
+
+Notes
+
++ STEP = 0 is internally treated as STEP = 1
++ MIN/MAX values are left-shifted (×64) to match lower-bit resolution
++ Counter maintains full 60-bit range; modulo only affects lower bits
+
+I will now proceed to place and route for this design.
+
+Now I have also finished the layout for this design, and it is LVS and DRC clean.
+
+What I would actually need next would be the safe cdc module, which should be very easy.
+
+I have this idea that makes me want to try the global layout in innovus... but I will need the abstract file for it.
+
+I will see how I can generate this...
+
+## 15 Apr 2026
+
+I have now managed to finish the routing for the whole data chain, still not sure if it is correct.
+
+Will do a DRC check and LVS check for it.
+
+And I will do a gate-level simulation for the whole data chain.
+
+Now it seems that DRC has been checked and it is clean, but I could not get the LVS done.
+
+Plus, I still need to add the power ground nets for the whole module.
+
+Now I have added the power and ground stripes for this big data chain design, but there is one module that is a little difficult, which is the PKT_FIFO_LINK module, it might have some routing blockage that I have set, it is not letting me route special wires to it.
+
+I will have to fix it in the layout level.
+
+![The module is all fully routed and almost all power and ground nets were added](./img//home/j05003sx/Pictures/Screenshots/Almost_fully_routed_big_top_design_with_power_and_ground_ports_also_added.png)
+
+But from this time's experience, the big lessons learnt is that, we should do the implementation using top-down methodology!!!!
+
+Because it will have a much better support during place and route!
+
+Just realised the decision to make the PKT_FIFO_LINK with a big block ring was a mistake, now I cannot cross over the domain to cross over for power ground easily.
+
+
+I switched to PVS for quick debugging in the case, and then quickly found out that my manually routed design has power ground short problem!!!
+
+Carefully referred to the suggested problem listed, and then I spotted the layout problem with the power and ground stripes connected incorrectly.
+
+Finally, I think I managed to have a LVS match using PVS, now I will try calibre.
+
+![PVS now gave me green light for the layout design](./img/Finally_PVS_Gave_me_LVS_match_for_the_top_design.png)
+
+The only error it has is inside the memory module, so it is not my problem.
+
+It is very promising now, calibre only reports some minor discrepancies with the port name and device unmatched (MM V.S. G2).
+
+I have checked all the ports, they are basically identical, the only difference is that layout uses pointy brackets, verilog uses square brackets. 
+
+And also the difference between "VCC!" and "VCC"
+
+After switching the source spice file, I have now officially passed the LVS check! In Calibre!!!
+
+![Finally had some progress for LVS check with the big top design](./img/MR_smiley_also_gave_me_green_light_for_the_LVS_check!!!.png)
+
+
+Suppose now I just need to do gate-level simulation now to verify the netlist is giving me what I wanted...
+
+I will now list all the necessary modules I will have in CHIP4:
+
++ DATA_CHAIN_TOP
++ SPI_CONFIG_TOP
++ CNT40M_60BIT
++ channel_reg_bank_cdc
++ reset_synch
+
+
+I will have to think about the design now.
+
+
+
+
 
